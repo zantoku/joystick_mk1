@@ -24,6 +24,13 @@ int16_t lastCalibratedReading[4];
 char msgBuf[256];
 
 #define NUM_BUTTONS 7
+#define ROLL_ON_THRO 2*(int)buttonStates[0]
+#define THRO_CUT buttonStates[5]
+#define THRO_FULL buttonStates[4]
+
+int16_t throttleTrigger = 0;
+const int throttleReactivationThreshold = 5000;
+int16_t throttleOverrideValue;
 
 int buttonPins[NUM_BUTTONS] = {5, 6, 7, 8, 9, 10, 11};
 int buttonTimers[NUM_BUTTONS] = {0, 0, 0, 0, 0, 0, 0};
@@ -65,15 +72,31 @@ void loop() {
       newReading = calibratedAxis(i);
       lastCalibratedReading[i] = newReading;
     }
+
+    int16_t finalThrottleValue = lastCalibratedReading[0];
+    if (THRO_CUT || THRO_FULL) {
+      if (!throttleTrigger) {
+        throttleTrigger = lastCalibratedReading[0];
+        throttleOverrideValue = THRO_CUT ? -32768 : 0x7fff;
+      }
+    }
+    
+    if (throttleTrigger) {
+      if (abs(throttleTrigger-lastCalibratedReading[0]) > throttleReactivationThreshold) {
+        throttleTrigger = 0;
+      } else {
+        finalThrottleValue = throttleOverrideValue;
+      }
+    }
     
     Gamepad.releaseAll();
-    Gamepad.xAxis(lastCalibratedReading[0]);
-    Gamepad.yAxis(lastCalibratedReading[1]);
+    Gamepad.xAxis(finalThrottleValue);
+    Gamepad.yAxis(lastCalibratedReading[1+ROLL_ON_THRO]);
     Gamepad.rxAxis(lastCalibratedReading[2]);
-    Gamepad.ryAxis(lastCalibratedReading[3]);
-    for (int i=0; i<NUM_BUTTONS; ++i) {
+    Gamepad.ryAxis(lastCalibratedReading[3-ROLL_ON_THRO]);
+    for (int i=1; i<NUM_BUTTONS; ++i) {
       if(buttonStates[i]) {
-        Gamepad.press(i+1);
+        Gamepad.press(i);
       }
     }
     Gamepad.write();
@@ -115,8 +138,9 @@ void readButtons() {
     sprintf(msgBuf+2*c++, "%d ", buttonStates[i]);
   }
 
-
-//Serial.println(msgBuf);
+#if SERIAL_LOGGING
+Serial.println(msgBuf);
+#endif
   
 }
 
