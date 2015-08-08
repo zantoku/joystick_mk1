@@ -23,7 +23,15 @@ int16_t lastCalibratedReading[4];
 
 char msgBuf[256];
 
+#define NUM_BUTTONS 7
+
+int buttonPins[NUM_BUTTONS] = {5, 6, 7, 8, 9, 10, 11};
+int buttonTimers[NUM_BUTTONS] = {0, 0, 0, 0, 0, 0, 0};
+bool buttonStates[NUM_BUTTONS];
+const int debounceLimit = 30;
+
 void setup() {
+  for (int i=0; i<NUM_BUTTONS; ++i) pinMode(buttonPins[i], INPUT_PULLUP);
   pinMode(calibrationPin, INPUT_PULLUP);
   pinMode(statusLed, OUTPUT);
 
@@ -42,6 +50,7 @@ void setup() {
 
 void loop() {
   readAxes();
+  readButtons();
   determineJoystickMode();
   if (isCalibrating) {
     for (int i=0; i<4; ++i) {
@@ -51,23 +60,24 @@ void loop() {
     }
     
   } else {
-    bool dirty = false;
     int16_t newReading;
     for (int i=0; i<4; ++i) {
       newReading = calibratedAxis(i);
-      if (newReading != lastCalibratedReading[i]) {
-        lastCalibratedReading[i] = newReading;
-        dirty = true;
-      }
+      lastCalibratedReading[i] = newReading;
     }
     
-    if (dirty) {
-      Gamepad.xAxis(lastCalibratedReading[0]);
-      Gamepad.yAxis(lastCalibratedReading[1]);
-      Gamepad.rxAxis(lastCalibratedReading[2]);
-      Gamepad.ryAxis(lastCalibratedReading[3]);
-      Gamepad.write();
-      
+    Gamepad.releaseAll();
+    Gamepad.xAxis(lastCalibratedReading[0]);
+    Gamepad.yAxis(lastCalibratedReading[1]);
+    Gamepad.rxAxis(lastCalibratedReading[2]);
+    Gamepad.ryAxis(lastCalibratedReading[3]);
+    for (int i=0; i<NUM_BUTTONS; ++i) {
+      if(buttonStates[i]) {
+        Gamepad.press(i);
+      }
+    }
+    Gamepad.write();
+    
 //#if SERIAL_LOGGING
 //      sprintf(msgBuf, "x:%d y:%d rx:%d ry:%d", 
 //        lastCalibratedReading[0], 
@@ -76,7 +86,6 @@ void loop() {
 //        lastCalibratedReading[3]);
 //      Serial.println(msgBuf);
 //#endif
-    }
   }
 }
 
@@ -85,6 +94,30 @@ void readAxes() {
   analogRead(axisPins[samplingAxis]);
   axes[samplingAxis] = analogRead(axisPins[samplingAxis]);
   samplingAxis = (samplingAxis+1) % 4;
+}
+
+void readButtons() {
+  int c = 0;
+  memset(msgBuf, 0, sizeof(msgBuf));
+  
+  int now = millis();
+  for (int i=0; i<NUM_BUTTONS; ++i) {
+    if (digitalRead(buttonPins[i]) == LOW) {
+      if (buttonTimers[i] == 0) {
+        buttonTimers[i] = now;
+      }
+    } else {
+      buttonTimers[i] = 0;
+    }
+
+    buttonStates[i] = buttonTimers[i] && ((now-buttonTimers[i])>debounceLimit);
+
+    sprintf(msgBuf+2*c++, "%d ", buttonStates[i]);
+  }
+
+
+//Serial.println(msgBuf);
+  
 }
 
 void determineJoystickMode() {
