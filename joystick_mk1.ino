@@ -73,7 +73,7 @@ void loop() {
     Gamepad.ryAxis(lastCalibratedReading[3]);
     for (int i=0; i<NUM_BUTTONS; ++i) {
       if(buttonStates[i]) {
-        Gamepad.press(i);
+        Gamepad.press(i+1);
       }
     }
     Gamepad.write();
