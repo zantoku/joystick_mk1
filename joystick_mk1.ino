@@ -77,8 +77,8 @@ void loop() {
     if (THRO_CUT || THRO_FULL) {
       if (!throttleTrigger) {
         throttleTrigger = lastCalibratedReading[0];
-        throttleOverrideValue = THRO_CUT ? -32768 : 0x7fff;
       }
+      throttleOverrideValue = THRO_CUT ? -32768 : 0x7fff;
     }
     
     if (throttleTrigger) {
