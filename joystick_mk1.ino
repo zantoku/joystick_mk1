@@ -78,7 +78,7 @@ void loop() {
       if (!throttleTrigger) {
         throttleTrigger = lastCalibratedReading[0];
       }
-      throttleOverrideValue = THRO_CUT ? -32768 : 0x7fff;
+      throttleOverrideValue = THRO_CUT ? 0x7fff+1 : 0x7fff;
     }
     
     if (throttleTrigger) {
@@ -88,12 +88,14 @@ void loop() {
         finalThrottleValue = throttleOverrideValue;
       }
     }
+
+    int16_t yawDir = ROLL_ON_THRO ? -1 : 1;
     
     Gamepad.releaseAll();
     Gamepad.xAxis(finalThrottleValue);
     Gamepad.yAxis(lastCalibratedReading[1+ROLL_ON_THRO]);
     Gamepad.rxAxis(lastCalibratedReading[2]);
-    Gamepad.ryAxis(lastCalibratedReading[3-ROLL_ON_THRO]);
+    Gamepad.ryAxis(yawDir * lastCalibratedReading[3-ROLL_ON_THRO]);
     for (int i=1; i<NUM_BUTTONS; ++i) {
       if(buttonStates[i]) {
         Gamepad.press(i);
