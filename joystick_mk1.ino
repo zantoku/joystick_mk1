@@ -23,23 +23,23 @@ int16_t lastCalibratedReading[4];
 
 char msgBuf[256];
 
-#define NUM_BUTTONS 7
-#define ROLL_ON_THRO 2*(int)buttonStates[0]
-#define THRO_CUT buttonStates[5]
-#define THRO_FULL buttonStates[4]
+#define NUM_BUTTONS 8
+#define ROLL_ON_THRO 2*(int)buttonStates[1]
+#define THRO_CUT buttonStates[6]
+#define THRO_FULL buttonStates[5]
+#define CALIBRATION_BUTTON_PUSHED buttonStates[0]
 
 int16_t throttleTrigger = 0;
 const int throttleReactivationThreshold = 5000;
 int16_t throttleOverrideValue;
 
-int buttonPins[NUM_BUTTONS] = {5, 6, 7, 8, 9, 10, 11};
-int buttonTimers[NUM_BUTTONS] = {0, 0, 0, 0, 0, 0, 0};
+int buttonPins[NUM_BUTTONS] = {calibrationPin, 5, 6, 7, 8, 9, 10, 11};
+unsigned long buttonTimers[NUM_BUTTONS] = {0, 0, 0, 0, 0, 0, 0, 0};
 bool buttonStates[NUM_BUTTONS];
 const int debounceLimit = 30;
 
 void setup() {
   for (int i=0; i<NUM_BUTTONS; ++i) pinMode(buttonPins[i], INPUT_PULLUP);
-  pinMode(calibrationPin, INPUT_PULLUP);
   pinMode(statusLed, OUTPUT);
 
   loadCalibrationData();
@@ -96,9 +96,9 @@ void loop() {
     Gamepad.yAxis(lastCalibratedReading[1+ROLL_ON_THRO]);
     Gamepad.rxAxis(lastCalibratedReading[2]);
     Gamepad.ryAxis(yawDir * lastCalibratedReading[3-ROLL_ON_THRO]);
-    for (int i=1; i<NUM_BUTTONS; ++i) {
+    for (int i=2; i<NUM_BUTTONS; ++i) {
       if(buttonStates[i]) {
-        Gamepad.press(i);
+        Gamepad.press(i-1);
       }
     }
     Gamepad.write();
@@ -125,7 +125,7 @@ void readButtons() {
   int c = 0;
   memset(msgBuf, 0, sizeof(msgBuf));
   
-  int now = millis();
+  unsigned long now = millis();
   for (int i=0; i<NUM_BUTTONS; ++i) {
     if (digitalRead(buttonPins[i]) == LOW) {
       if (buttonTimers[i] == 0) {
@@ -141,14 +141,13 @@ void readButtons() {
   }
 
 #if SERIAL_LOGGING
-Serial.println(msgBuf);
+  Serial.println(msgBuf);
 #endif
   
 }
 
 void determineJoystickMode() {
-  bool calibrationButtonPushed = digitalRead(calibrationPin) == LOW;
-  if (calibrationButtonPushed) {
+  if (CALIBRATION_BUTTON_PUSHED) {
     if (!isChangingMode) {
       isChangingMode = true;
       isCalibrating = !isCalibrating;
@@ -168,12 +167,8 @@ void determineJoystickMode() {
         saveCalibrationData();
       }
       digitalWrite(statusLed, isCalibrating ? HIGH : LOW);
-      delay(100);
     }
   } else {
-    if (isChangingMode) {
-      delay(100);
-    }
     isChangingMode = false;
   }
 }
